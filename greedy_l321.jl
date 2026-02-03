@@ -4,15 +4,16 @@ using Graphs
 # FUNÇÃO AUXILIAR 1: BFS Limitada (Busca em Largura)
 # Objetivo: Encontrar vizinhos a distância exata de 1, 2 e 3 saltos.
 # ==============================================================================
-function nodes_by_distance_upto3(g::SimpleGraph, s::Int)
+function nodes_by_distance_upto3(g::AbstractGraph, s::Int)
     n = nv(g)
     dist = fill(-1, n)   # Inicializa vetor de distâncias com -1 (não visitado)
     dist[s] = 0          # A distância do vértice para ele mesmo é 0
     q = Int[s]           # Fila para controlar a visitação (começa com a origem 's')
 
     # Loop da busca em largura (BFS)
-    while !isempty(q)
-        v = popfirst!(q) # Remove o primeiro da fila
+    head = 1
+    while head <= length(q)
+        v = q[head]; head += 1 # Remove o primeiro da fila
         dv = dist[v]
 
         # não expande além de 3
@@ -29,13 +30,24 @@ function nodes_by_distance_upto3(g::SimpleGraph, s::Int)
 
     # Separa os vértices encontrados em listas específicas por distância
     d1 = Int[]; d2 = Int[]; d3 = Int[]
-    for v in 1:n
+    @inbounds for v in 1:n
         dist[v] == 1 && push!(d1, v)
         dist[v] == 2 && push!(d2, v)
         dist[v] == 3 && push!(d3, v)
     end
-
     return d1, d2, d3
+end
+
+# ==============================================================================
+# PRÉ-CÁLCULO: computa D1, D2, D3 para cada vértice (uma vez por grafo)
+# ==============================================================================
+function precompute_distsets(g::AbstractGraph)
+    n = nv(g)
+    distsets = Vector{Tuple{Vector{Int},Vector{Int},Vector{Int}}}(undef, n)
+    for v in 1:n
+        distsets[v] = nodes_by_distance_upto3(g, v)
+    end
+    return distsets
 end
 
 # ==============================================================================
@@ -88,18 +100,11 @@ end
 # ==============================================================================
 # FUNÇÃO PRINCIPAL: Algoritmo Guloso L(3,2,1)
 # ==============================================================================
-function greedy_l321(g::SimpleGraph, sequence::Vector{Int})
+function greedy_l321(g::AbstractGraph, sequence::Vector{Int}, distsets)
     n = nv(g)
     labels = fill(-1, n)    # Vetor final de rótulos (-1 indica não rotulado)
-    used = fill(false, n)   # Vetor booleano temporário para marcar proibições
-
-    # ---------------------------------------------------------
-    # PRÉ-CÁLCULO: Mapeia vizinhança D1, D2, D3 para todos os nós
-    # ---------------------------------------------------------
-    distsets = Vector{Tuple{Vector{Int},Vector{Int},Vector{Int}}}(undef, n)
-    for v in 1:n
-        distsets[v] = nodes_by_distance_upto3(g, v)
-    end
+    Δ = maximum(degree(g, v) for v in 1:n) # Calcula o grau máximo do grafo
+    used = fill(false, max(64, 8*Δ + 32)) # Vetor de rótulos proibidos
 
     maxlabel = 0    # Variável para rastrear o maior rótulo usado (Span)
 
@@ -150,8 +155,6 @@ function greedy_l321(g::SimpleGraph, sequence::Vector{Int})
 
         labels[v] = L
         maxlabel = max(maxlabel, L)     # Atualiza o Span global se necessário
-        println(L) # Para teste, imprime os labels escolhidos para cada vértice (retirar depois)
-
 
         # =====================================================
         # ETAPA (C): LIMPEZA (RESET)

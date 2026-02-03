@@ -43,12 +43,15 @@ end
 
 include("greedy_l321.jl")
 
-instance = "data/p5.txt"
+instance = "data/CUBIC/cubic_100.txt"
 
 # Carrega o grafo
 g = read_simple_graph(instance)
 println("Instância: ", instance)
-println("n = ", nv(g), "  m = ", ne(g))
+println("v = ", nv(g), "  e = ", ne(g))
+
+# Pré-cálculo das vizinhanças a distância 1,2,3 (uma vez por grafo)
+distsets = precompute_distsets(g)
 
 # Define a ordem dentro do main, grau decrescente
 degs = degree(g)
@@ -56,8 +59,8 @@ sequence = sortperm(1:nv(g); by = v -> degs[v], rev = true)
 
 # Executa o guloso L(3,2,1)
 t0 = time()
-labels, span = greedy_l321(g, sequence)
+labels, span = greedy_l321(g, sequence, distsets)
 elapsed = time() - t0
 
-println("span (max label) = ", span)
-println("tempo (s) = ", elapsed)
+println("Span = ", span)
+println("tempo(s) = ", elapsed)
